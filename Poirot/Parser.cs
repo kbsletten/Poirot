@@ -47,6 +47,10 @@ namespace Poirot
                         throw new ArgumentOutOfRangeException();
                 }
             }
+            if (context != null)
+            {
+                throw new Exception("Missing end tag. Expecting " + context);
+            }
             return templates;
         }
     }

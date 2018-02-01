@@ -47,13 +47,71 @@ namespace Poirot
             }
             return braceOffset;
         }
+        internal static int ScanBraceFast(string template, char brace, int braceLength, ref int index)
+        {
+            if (template[index] == brace)
+            {
+                for (int i = 0; i < braceLength; i++)
+                {
+                    if (index + i < template.Length)
+                    {
+                        if (template[index + i] != brace)
+                        {
+                            goto scan;
+                        }
+                    }
+                }
+                index += braceLength;
+                return index - braceLength;
+            }
+        scan:
+            while (index + braceLength < template.Length)
+            {
+                index += braceLength;
+                if (template[index] == brace)
+                {
+                    for (int i = 0; i < braceLength; i++)
+                    {
+                        if (index + i >= template.Length)
+                        {
+                            break;
+                        }
+                        bool found = true;
+                        for (int j = 1; found && j < braceLength; j++)
+                        {
+                            if (template[index + i - j] != brace)
+                            {
+                                found = false;
+                                break;
+                            }
+                        }
+                        if (found)
+                        {
+                            index = index + i + 1;
+                            return index - braceLength;
+                        }
+                    }
+                }
+            }
+            return index = template.Length;
+        }
         internal static IEnumerable<Token> GetTokens(string template, string open = "{{", string close = "}}")
         {
+            var fastOpen = true;
+            for (var i = 0; i < open.Length; i++)
+            {
+                fastOpen &= open[i] == open[0];
+            }
+            var fastClose = true;
+            for (var i = 0; i < close.Length; i++)
+            {
+                fastClose &= close[i] == close[0];
+            }
             var index = 0;
             while (index < template.Length)
             {
                 var offset = index;
-                var brace = ScanBrace(template, open, ref index);
+                var brace = fastOpen ? ScanBraceFast(template, open[0], open.Length, ref index) : ScanBrace(template, open, ref index);
                 var triple = open == "{{" && template.Length > index && template[index] == '{';
                 if (triple)
                 {
@@ -116,7 +174,14 @@ namespace Poirot
                     var end = ScanWord(template, start);
                     token.Offset = start;
                     token.Length = end - start;
-                    ScanBrace(template, triple ? "}}}" : close, ref index);
+                    if (triple || fastClose)
+                    {
+                        ScanBraceFast(template, close[0], triple ? 3 : close.Length, ref index);
+                    }
+                    else
+                    {
+                        ScanBrace(template, close, ref index);
+                    }
                     if (token.Type == TagType.Loop || token.Type == TagType.Inverted || token.Type == TagType.End || token.Type == TagType.Partial)
                     {
                         Standalone(template, ref text, ref index);
@@ -127,7 +192,14 @@ namespace Poirot
                 }
                 else
                 {
-                    ScanBrace(template, close, ref index);
+                    if (fastClose)
+                    {
+                        ScanBraceFast(template, close[0], close.Length, ref index);
+                    }
+                    else
+                    {
+                        ScanBrace(template, close, ref index);
+                    }
                     Standalone(template, ref text, ref index);
                     if (text != null)
                         yield return (Token)text;
