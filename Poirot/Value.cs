@@ -4,6 +4,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace Poirot
 {
@@ -44,9 +46,12 @@ namespace Poirot
             {
                 constructor = new Lazy<Func<object, IValue>>(() =>
                 {
-                    var typeProvider = Activator.CreateInstance(typeof(ValueProvider<>).MakeGenericType(type));
+                    var typeProviderType = typeof(ValueProvider<>).MakeGenericType(type);
+                    var typeProvider = Activator.CreateInstance(typeProviderType);
                     var valueType = typeof(Value<>).MakeGenericType(type);
-                    return (Func<object, IValue>)(t => (IValue)Activator.CreateInstance(valueType, typeProvider, t));
+                    var obj = Expression.Parameter(typeof(object));
+                    var fun = Expression.Lambda<Func<object, IValue>>(Expression.New(valueType.GetConstructor(new Type[] { typeProviderType, type }), new Expression[] { Expression.Constant(typeProvider), Expression.Convert(obj, type) }), obj);
+                    return fun.Compile();
                 });
                 if (constructors.TryAdd(type, constructor))
                     break;
