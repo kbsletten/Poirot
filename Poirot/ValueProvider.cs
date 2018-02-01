@@ -81,10 +81,6 @@ namespace Poirot
             {
                 var ret = Expression.Label(typeof(IValue));
                 var cases = new List<SwitchCase>();
-                foreach (var symbol in typeof(T).GetFields().Select(x => x.Name).Concat(typeof(T).GetProperties().Select(x => x.Name)))
-                {
-                    Console.WriteLine("{0}.{1}", typeof(T).Name, symbol);
-                }
                 cases.AddRange(typeof(T).GetFields().Where(f => !f.IsStatic).Select(field => Expression.SwitchCase(Expression.Return(ret, ToRenderer(field.FieldType, Expression.Field(t, field))), Expression.Constant(field.Name))));
                 cases.AddRange(typeof(T).GetProperties().Where(par => !par.GetGetMethod().IsStatic).Select(property => Expression.SwitchCase(Expression.Return(ret, ToRenderer(property.PropertyType, Expression.Property(t, property))), Expression.Constant(property.Name))));
                 cases.AddRange(typeof(T).GetMethods().Where(par => !par.IsStatic && par.GetParameters().Length == 0 && par.ReturnType != typeof(void)).Select(property => Expression.SwitchCase(Expression.Return(ret, ToRenderer(property.ReturnType, Expression.Call(t, property, new Expression[0]))), Expression.Constant(property.Name))));
